@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title> To‑Do — List application : by Wasim Raza</title>
+  <style>
+    :root{
+      --bg1:#0f172a; /* slate-900 */
+      --bg2:#111827; /* gray-900 */
+      --accent:#60a5fa; /* blue-400 */
+      --accent-2:#a78bfa; /* violet-400 */
+      --danger:#ef4444; /* red-500 */
+      --success:#22c55e; /* green-500 */
+      --glass:rgba(255,255,255,0.12);
+      --glass-strong:rgba(255,255,255,0.22);
+      --text:#e5e7eb; /* gray-200 */
+      --muted:#9ca3af; /* gray-400 */
+      --shadow:0 10px 30px rgba(0,0,0,.35);
+      --radius:20px;
+    }
+
+    /* ====== Animated Background ====== */
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+      color:var(--text);
+      min-height:100svh; overflow-x:hidden; position:relative;
+      background: radial-gradient(1200px 800px at 10% 10%, #111827 0%, #0b1022 50%, #060912 100%);
+    }
+    .orbs{
+      position:fixed; inset:0; overflow:hidden; pointer-events:none; filter:saturate(1.2) blur(0px);
+    }
+    .orb{
+      position:absolute; width:200px; height:200px; border-radius:50%;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), rgba(255,255,255,.05) 35%, rgba(255,255,255,0) 60%),
+                  radial-gradient(circle at 70% 70%, rgba(96,165,250,.9), rgba(167,139,250,.6));
+      mix-blend-mode:screen; opacity:.35;
+      animation: float 14s ease-in-out infinite;
+      transform: translateZ(0);
+    }
+    .orb:nth-child(odd){
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.25), rgba(255,255,255,.05) 35%, rgba(255,255,255,0) 60%),
+                  radial-gradient(circle at 70% 70%, rgba(167,139,250,.9), rgba(96,165,250,.6));
+      animation-duration: 18s;
+    }
+    @keyframes float{
+      0%{ transform: translateY(0) translateX(0) scale(1); }
+      50%{ transform: translateY(-40px) translateX(20px) scale(1.05); }
+      100%{ transform: translateY(0) translateX(0) scale(1); }
+    }
+
+    /* ====== App Layout ====== */
+    .wrap{ position:relative; z-index:1; display:grid; place-items:center; padding:40px 20px; }
+
+    .app{
+      width:min(980px, 94vw); backdrop-filter: blur(16px) saturate(1.2);
+      background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.08));
+      border:1px solid rgba(255,255,255,.18);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding:24px;
+    }
+
+    header{
+      display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap;
+    }
+    .title{ display:flex; align-items:center; gap:12px; }
+    .logo{ width:42px; height:42px; border-radius:12px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 6px 20px rgba(99,102,241,.45); }
+    h1{ font-size: clamp(20px, 2.6vw, 28px); margin:0; letter-spacing:.3px; }
+
+    /* Controls */
+    .controls{ margin-top:18px; display:grid; grid-template-columns: 1.2fr .8fr .8fr .8fr auto; gap:12px; }
+    .control, .btn{
+      background: var(--glass);
+      border:1px solid rgba(255,255,255,.2);
+      border-radius: 14px; padding:10px 12px; color:var(--text);
+      outline:none; box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+    }
+    .control::placeholder{ color:var(--muted); }
+    select.control{ appearance:none; background-image: linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%);
+      background-position: calc(100% - 16px) calc(1em - 2px), calc(100% - 12px) calc(1em - 2px);
+      background-size: 6px 6px, 6px 6px; background-repeat:no-repeat; padding-right:30px;
+    }
+    .btn{ cursor:pointer; user-select:none; transition:.2s transform, .2s background; display:inline-flex; align-items:center; gap:8px; }
+    .btn:hover{ background: var(--glass-strong); transform: translateY(-1px); }
+
+    .view-toggle{ display:flex; gap:8px; }
+    .chip{ padding:8px 12px; border-radius:999px; background: var(--glass); border:1px solid rgba(255,255,255,.2); cursor:pointer; }
+    .chip.active{ background: linear-gradient(135deg, rgba(96,165,250,.35), rgba(167,139,250,.35)); }
+
+    /* Add form */
+    .add{ margin:18px 0 10px; display:grid; grid-template-columns: 1fr .5fr .5fr auto; gap:12px; }
+    .add input, .add select{ height:44px; }
+
+    /* List */
+    .list{ display:grid; gap:10px; margin-top:14px; }
+    .item{
+      display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:12px;
+      background: rgba(17, 24, 39, .35);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 16px; padding:12px; position:relative; overflow:hidden;
+      touch-action: pan-y; /* allow horizontal swipe */
+    }
+    .handle{ width:14px; height:14px; border-radius:4px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); opacity:.9; box-shadow: 0 2px 10px rgba(99,102,241,.35); }
+    .text{ font-size:16px; line-height:1.35; }
+    .meta{ font-size:12px; color:var(--muted); display:flex; gap:10px; margin-top:4px; }
+    .category{ padding:2px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.08); font-size:12px; }
+    .due.overdue{ color:var(--danger); }
+    .actions{ display:flex; gap:8px; }
+
+    .item.completed{ opacity:.85; }
+    .item.completed .text{ text-decoration: line-through; color:#a7f3d0; }
+
+    .action{ background: var(--glass); border:1px solid rgba(255,255,255,.2); border-radius:12px; padding:8px 10px; cursor:pointer; }
+    .action.complete{ border-color: rgba(34,197,94,.5); }
+    .action.delete{ border-color: rgba(239,68,68,.5); }
+
+    /* Swipe hints */
+    .swipe-bg{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; padding:0 14px; pointer-events:none; opacity:0; transition:.15s opacity;
+    }
+    .swipe-bg::before{ content:"✓ Complete"; padding:6px 10px; border-radius:10px; background: rgba(34,197,94,.3); border:1px solid rgba(34,197,94,.6); }
+    .swipe-bg::after{ content:"Delete ✕"; padding:6px 10px; border-radius:10px; background: rgba(239,68,68,.3); border:1px solid rgba(239,68,68,.6); }
+    .item.swiping .swipe-bg{ opacity:1; }
+
+    /* Calendar view */
+    .calendar-view{ display:none; margin-top:14px; }
+    .calendar-view.active{ display:block; }
+    .calendar-controls{ display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+    .calendar-list{ display:grid; gap:10px; }
+
+    /* Responsive */
+    @media (max-width: 840px){
+      .controls{ grid-template-columns: 1fr 1fr 1fr 1fr auto; }
+    }
+    @media (max-width: 680px){
+      .controls{ grid-template-columns: 1fr 1fr; }
+      .add{ grid-template-columns: 1fr 1fr; }
+      .actions .txt{ display:none; }
+      header{ gap:10px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Floating Orbs Background -->
+  <div class="orbs" id="orbs"></div>
+
+  <div class="wrap">
+    <div class="app" id="app" role="region" aria-label="To‑Do application">
+      <header>
+        <div class="title">
+          <div class="logo" aria-hidden="true"></div>
+          <h1>To‑Do-App</h1>
+        </div>
+        <div class="view-toggle" role="tablist" aria-label="Switch view">
+          <button class="chip active" id="listTab" aria-selected="true">List</button>
+          <button class="chip" id="calTab" aria-selected="false">Calendar</button>
+        </div>
+      </header>
+
+      <div class="controls" aria-label="Filters and search">
+        <input id="q" class="control" placeholder="Search tasks..." />
+        <select id="status" class="control" title="Status filter">
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+        </select>
+        <select id="catFilter" class="control" title="Category filter">
+          <option value="all">All categories</option>
+        </select>
+        <select id="dateFilter" class="control" title="Due date filter">
+          <option value="all">Any due date</option>
+          <option value="today">Due today</option>
+          <option value="overdue">Overdue</option>
+          <option value="upcoming">Upcoming</option>
+        </select>
+        <button id="clearCompleted" class="btn" title="Clear completed">Clear Done</button>
+      </div>
+
+      <div class="add" aria-label="Add a task">
+        <input id="taskText" class="control" placeholder="What do you need to do?" />
+        <select id="taskCat" class="control"></select>
+        <input id="taskDue" class="control" type="date" />
+        <button id="addBtn" class="btn">Add Task</button>
+      </div>
+
+      <section id="list" class="list" aria-live="polite"></section>
+
+      <section id="calendarView" class="calendar-view" aria-live="polite">
+        <div class="calendar-controls">
+          <input type="date" id="calDate" class="control" />
+          <span id="dayCount" class="control" style="display:inline-flex; align-items:center;">0 tasks</span>
+        </div>
+        <div id="calList" class="calendar-list"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    /* ===================== Utility & Storage ===================== */
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => Array.from(document.querySelectorAll(sel));
+    const storage = {
+      get(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) ?? fallback }catch{ return fallback } },
+      set(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+    };
+
+    const uid = () => Math.random().toString(36).slice(2,9);
+
+    const state = {
+      tasks: storage.get('todo.tasks', []),
+      categories: storage.get('todo.categories', ['General','Work','Study','Home']),
+      filters: storage.get('todo.filters', { q:'', status:'all', cat:'all', date:'all' }),
+      view: storage.get('todo.view', 'list')
+    };
+
+    function save(){
+      storage.set('todo.tasks', state.tasks);
+      storage.set('todo.categories', state.categories);
+      storage.set('todo.filters', state.filters);
+      storage.set('todo.view', state.view);
+    }
+
+    /* ===================== Background Orbs ===================== */
+    const orbContainer = $('#orbs');
+    const ORB_COUNT = 14;
+    for(let i=0;i<ORB_COUNT;i++){
+      const el = document.createElement('div');
+      el.className = 'orb';
+      el.style.left = Math.random()*100+'%';
+      el.style.top = Math.random()*100+'%';
+      el.style.width = el.style.height = (140 + Math.random()*220) + 'px';
+      el.style.animationDelay = (Math.random()*-10)+'s';
+      orbContainer.appendChild(el);
+    }
+    // subtle parallax for mouse/touch
+    let parallaxX = 0, parallaxY = 0;
+    function parallax(e){
+      const x = (e.touches? e.touches[0].clientX : e.clientX)/window.innerWidth - .5;
+      const y = (e.touches? e.touches[0].clientY : e.clientY)/window.innerHeight - .5;
+      parallaxX = x; parallaxY = y;
+      orbContainer.style.transform = `translate(${x*-12}px, ${y*-12}px)`;
+    }
+    window.addEventListener('mousemove', parallax, {passive:true});
+    window.addEventListener('touchmove', parallax, {passive:true});
+
+    /* ===================== DOM Refs ===================== */
+    const listEl = $('#list');
+    const q = $('#q');
+    const status = $('#status');
+    const catFilter = $('#catFilter');
+    const dateFilter = $('#dateFilter');
+    const taskText = $('#taskText');
+    const taskCat = $('#taskCat');
+    const taskDue = $('#taskDue');
+    const addBtn = $('#addBtn');
+    const clearCompleted = $('#clearCompleted');
+    const listTab = $('#listTab');
+    const calTab = $('#calTab');
+    const calendarView = $('#calendarView');
+    const calDate = $('#calDate');
+    const calList = $('#calList');
+    const dayCount = $('#dayCount');
+
+    /* ===================== Init UI ===================== */
+    function hydrateCategoryControls(){
+      taskCat.innerHTML = '';
+      catFilter.innerHTML = '<option value="all">All categories</option>';
+      state.categories.forEach(c=>{
+        const o1 = document.createElement('option'); o1.value=c; o1.textContent=c; taskCat.appendChild(o1);
+        const o2 = document.createElement('option'); o2.value=c; o2.textContent=c; catFilter.appendChild(o2);
+      });
+    }
+
+    function setTodayInputs(){
+      const today = new Date().toISOString().slice(0,10);
+      taskDue.value = '';
+      calDate.value = today;
+    }
+
+    function applyFilter(task){
+      // text
+      if(state.filters.q){
+        const ql = state.filters.q.toLowerCase();
+        if(!task.text.toLowerCase().includes(ql)) return false;
+      }
+      // status
+      if(state.filters.status==='active' && task.completed) return false;
+      if(state.filters.status==='completed' && !task.completed) return false;
+      // category
+      if(state.filters.cat!=='all' && task.category!==state.filters.cat) return false;
+      // date
+      const todayStr = new Date().toISOString().slice(0,10);
+      if(state.filters.date==='today' && task.due!==todayStr) return false;
+      if(state.filters.date==='overdue' && task.due && task.due < todayStr && !task.completed){} else if(state.filters.date==='overdue'){ return false; }
+      if(state.filters.date==='upcoming'){
+        if(!(task.due && task.due > todayStr)) return false;
+      }
+      return true;
+    }
+
+    function render(){
+      save();
+      hydrateCategoryControls();
+
+      // view toggle
+      if(state.view==='list'){
+        listTab.classList.add('active'); calTab.classList.remove('active');
+        listTab.setAttribute('aria-selected','true'); calTab.setAttribute('aria-selected','false');
+        listEl.style.display='grid'; calendarView.classList.remove('active');
+      }else{
+        calTab.classList.add('active'); listTab.classList.remove('active');
+        calTab.setAttribute('aria-selected','true'); listTab.setAttribute('aria-selected','false');
+        listEl.style.display='none'; calendarView.classList.add('active');
+        renderCalendar();
+      }
+
+      // list
+      listEl.innerHTML='';
+      const filtered = state.tasks.filter(applyFilter).sort((a,b)=>{
+        // sort: overdue first, then closest due, then created
+        const ad = a.due || '9999-99-99';
+        const bd = b.due || '9999-99-99';
+        if(ad!==bd) return ad.localeCompare(bd);
+        return (a.created||'').localeCompare(b.created||'');
+      });
+
+      if(filtered.length===0){
+        const empty = document.createElement('div');
+        empty.className='control'; empty.style.textAlign='center'; empty.style.padding='18px';
+        empty.textContent='No tasks match your filters.';
+        listEl.appendChild(empty);
+      }
+
+      filtered.forEach(t=> listEl.appendChild(renderItem(t)));
+    }
+
+    function renderItem(t){
+      const li = document.createElement('div');
+      li.className = 'item' + (t.completed? ' completed' : '');
+      li.dataset.id = t.id;
+
+      const swipeBg = document.createElement('div');
+      swipeBg.className = 'swipe-bg';
+
+      const handle = document.createElement('div'); handle.className='handle'; handle.setAttribute('aria-hidden','true');
+
+      const content = document.createElement('div');
+      const title = document.createElement('div'); title.className='text'; title.textContent = t.text;
+      const meta = document.createElement('div'); meta.className='meta';
+      const cat = document.createElement('span'); cat.className='category'; cat.textContent = t.category;
+      const due = document.createElement('span'); due.className='due';
+      if(t.due){
+        due.textContent = `Due ${t.due}`;
+        const todayStr = new Date().toISOString().slice(0,10);
+        if(t.due < todayStr && !t.completed) due.classList.add('overdue');
+      } else { due.textContent = 'No due date'; }
+      meta.append(cat, due);
+      content.append(title, meta);
+
+      const actions = document.createElement('div'); actions.className='actions';
+      const doneBtn = document.createElement('button'); doneBtn.className='action complete'; doneBtn.innerHTML = '<span class="txt">Done</span>'; doneBtn.title='Mark complete';
+      const delBtn = document.createElement('button'); delBtn.className='action delete'; delBtn.innerHTML = '<span class="txt">Delete</span>'; delBtn.title='Delete';
+      actions.append(doneBtn, delBtn);
+
+      li.append(swipeBg, handle, content, actions);
+
+      // Clicks
+      doneBtn.addEventListener('click', ()=> toggleComplete(t.id));
+      delBtn.addEventListener('click', ()=> removeTask(t.id));
+
+      // Touch gestures: swipe right to complete, left to delete
+      let startX=0, currentX=0, swiping=false;
+      const threshold = 60;
+      const onStart = e=>{ swiping=true; li.classList.add('swiping'); startX = (e.touches? e.touches[0].clientX : e.clientX); };
+      const onMove = e=>{
+        if(!swiping) return; currentX = (e.touches? e.touches[0].clientX : e.clientX); const dx = currentX - startX;
+        li.style.transform = `translateX(${dx}px)`; li.style.opacity = String(1 - Math.min(Math.abs(dx)/220, .35));
+      };
+      const onEnd = ()=>{
+        if(!swiping) return; swiping=false; li.classList.remove('swiping');
+        const dx = (currentX || startX) - startX; li.style.transition='transform .18s ease, opacity .18s ease';
+        if(dx > threshold){ toggleComplete(t.id); }
+        else if(dx < -threshold){ removeTask(t.id); }
+        li.style.transform='translateX(0)'; li.style.opacity='1';
+        setTimeout(()=>{ li.style.transition=''; }, 200);
+      };
+      li.addEventListener('touchstart', onStart, {passive:true});
+      li.addEventListener('touchmove', onMove, {passive:true});
+      li.addEventListener('touchend', onEnd);
+      li.addEventListener('mousedown', onStart);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onEnd);
+
+      return li;
+    }
+
+    function renderCalendar(){
+      const d = calDate.value || new Date().toISOString().slice(0,10);
+      const todays = state.tasks.filter(t=> t.due===d).sort((a,b)=> (a.completed===b.completed? 0 : a.completed? 1 : -1));
+      dayCount.textContent = `${todays.length} task${todays.length!==1?'s':''}`;
+      calList.innerHTML='';
+      if(todays.length===0){
+        const empty = document.createElement('div'); empty.className='control'; empty.style.textAlign='center'; empty.style.padding='18px'; empty.textContent='Nothing due on this date.'; calList.appendChild(empty);
+      }
+      todays.forEach(t=> calList.appendChild(renderItem(t)));
+    }
+
+    /* ===================== State Ops ===================== */
+    function addTask(){
+      const text = taskText.value.trim(); if(!text) return alert('Please enter a task');
+      const category = taskCat.value || state.categories[0] || 'General';
+      const due = taskDue.value || '';
+      const t = { id: uid(), text, category, due, completed:false, created: new Date().toISOString() };
+      state.tasks.push(t); taskText.value=''; taskDue.value='';
+      save(); render();
+    }
+    function toggleComplete(id){
+      const t = state.tasks.find(x=>x.id===id); if(!t) return; t.completed = !t.completed; save(); render();
+    }
+    function removeTask(id){ state.tasks = state.tasks.filter(x=> x.id!==id); save(); render(); }
+
+    /* ===================== Event Wiring ===================== */
+    addBtn.addEventListener('click', addTask);
+    taskText.addEventListener('keydown', e=>{ if(e.key==='Enter') addTask(); });
+
+    q.value = state.filters.q; status.value = state.filters.status; dateFilter.value = state.filters.date;
+    q.addEventListener('input', ()=>{ state.filters.q = q.value; render(); });
+    status.addEventListener('change', ()=>{ state.filters.status = status.value; render(); });
+    catFilter.addEventListener('change', ()=>{ state.filters.cat = catFilter.value; render(); });
+    dateFilter.addEventListener('change', ()=>{ state.filters.date = dateFilter.value; render(); });
+
+    clearCompleted.addEventListener('click', ()=>{ state.tasks = state.tasks.filter(t=> !t.completed); render(); });
+
+    listTab.addEventListener('click', ()=>{ state.view='list'; render(); });
+    calTab.addEventListener('click', ()=>{ state.view='calendar'; render(); });
+
+    calDate.addEventListener('change', renderCalendar);
+
+    // Allow creating new categories quickly by typing and pressing , or ; in the category select (simple UX hint)
+    taskCat.addEventListener('keydown', e=>{
+      if((e.key===',' || e.key===';') && taskCat.value.trim()){
+        e.preventDefault();
+        const val = taskCat.value.trim();
+        if(!state.categories.includes(val)) state.categories.push(val);
+        save(); hydrateCategoryControls(); taskCat.value = val;
+      }
+    });
+
+    // Boot
+    hydrateCategoryControls();
+    setTodayInputs();
+
+    // If first run with no tasks, add a couple of samples
+    if(state.tasks.length===0){
+      state.tasks.push(
+        {id:uid(), text:'Swipe right to complete', category:'General', due:'', completed:false, created:new Date().toISOString()},
+        {id:uid(), text:'Swipe left to delete', category:'General', due:'', completed:false, created:new Date().toISOString()},
+        {id:uid(), text:'Try filters, calendar, categories', category:'Work', due:new Date(Date.now()+86400000).toISOString().slice(0,10), completed:false, created:new Date().toISOString()}
+      );
+    }
+
+    // Restore filters into UI selects
+    function syncFilterUI(){
+      q.value = state.filters.q; status.value = state.filters.status; catFilter.value = state.filters.cat; dateFilter.value = state.filters.date;
+    }
+
+    syncFilterUI();
+    render();
+  </script>
+</body>
+</html>
